@@ -1,58 +1,120 @@
 <template>
-  <div class="addData">
-    <button class="addForm" v-on:click="showItems = !showItems">
-      ADD NEW COST +
-    </button>
-    <div class="form" v-if="showItems">
-      <input
-        class="formField"
-        placeholder="Payment Date"
-        v-model="date"
-      /><br />
-      <input
-        class="formField"
-        placeholder="Payment Description"
-        v-model="category"
-      /><br />
-      <input
-        class="formField"
-        placeholder="Payment Amount"
-        v-model="value"
-      /><br />
-      <button class="saveBtn" @click="onSaveClick">Save!</button>
+  <v-card class="text-left pa-8">
+    <template>
+      <div>
+        <v-menu
+          ref="menu"
+          v-model="menu"
+          :close-on-content-click="false"
+          transition="scale-transition"
+          offset-y
+          min-width="auto"
+        >
+          <template v-slot:activator="{ on, attrs }">
+            <v-text-field
+              v-model="date"
+              label="Date"
+              prepend-icon="mdi-calendar"
+              readonly
+              v-bind="attrs"
+              v-on="on"
+            ></v-text-field>
+          </template>
+          <v-date-picker
+            v-model="date"
+            :active-picker.sync="activePicker"
+            :max="
+              new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+                .toISOString()
+                .substr(0, 10)
+            "
+            min="1950-01-01"
+            @change="save"
+          ></v-date-picker>
+        </v-menu>
+      </div>
+    </template>
+    <v-select v-model="category" label="Category" :items="categoryList" />
+    <v-text-field v-model.number="amount" type="number" label="Value" />
+    <v-text-field v-model.number="id" type="number" label="Id" />
+    <div class="d-flex justify-space-around mb-6">
+      <v-btn color="teal" dark @click="onSaveClick">
+        Save!
+      </v-btn>
+      <!-- <v-btn color="teal" dark @click="onCloseClick">
+        Close
+      </v-btn> -->
     </div>
-  </div>
+  </v-card>
 </template>
 
 <script>
+import { mapGetters, mapActions, mapMutations } from "vuex"
+
 export default {
-  name: 'AddPaymentForm',
+  name: "AddPaymentForm",
   data () {
     return {
-      value: '',
-      category: '',
-      date: '',
-      showItems: false
+      activePicker: null,
+      date: null,
+      menu: false,
+      category: "",
+      amount: "",
+      id: ""
     }
   },
+  watch: {
+    menu (val) {
+      val && setTimeout(() => (this.activePicker = "YEAR"))
+    }
+  },
+  methods: {
+    ...mapActions(["fetchCategory", "fetchData"]),
+    ...mapMutations(["addDataToPaymentsList"]),
+    changeCategory (selected) {
+      this.category = selected
+    },
+    save (date) {
+      this.$refs.menu.save(date)
+    },
+    onSaveClick () {
+      const { category, amount } = this
+      const data = {
+        id: this.id,
+        date: this.date || this.getCurrentDate,
+        category,
+        amount
+      }
+      this.addDataToPaymentsList(data)
+    }
+    // onCloseClick () {
+    //   this.$modal.close()
+    // }
+  },
   computed: {
+    categoryList () {
+      return this.$store.getters.getCategoryList
+    },
+    ...mapGetters({
+      categories: "getCategoryList"
+    }),
     getCurrentDate () {
       const today = new Date()
       const d = today.getDate()
       const m = today.getMonth() + 1
       const y = today.getFullYear()
       return `${d}.${m}.${y}`
+    },
+    getAmountFromRoute () {
+      return Number(this.$route.query?.value || "")
     }
   },
-  methods: {
-    onSaveClick () {
-      const data = {
-        value: this.value,
-        category: this.category,
-        date: this.date || this.getCurrentDate
-      }
-      this.$emit('emitName', data)
+  created () {
+    this.fetchData()
+    if (!this.categories.length) {
+      this.fetchCategory()
     }
+    this.amount = this.getAmountFromRoute
   }
 }
 </script>
@@ -68,7 +130,7 @@ export default {
   margin-bottom: 15px;
 }
 .formField {
-  margin-bottom: 10px;
+  margin-bottom: 20px;
 }
 .saveBtn {
   background-color: #40e0d0;
